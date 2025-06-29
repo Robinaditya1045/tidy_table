@@ -4,7 +4,7 @@ A powerful data management and analysis platform that leverages artificial intel
 
 ## 📋 Project Description
 
-AI Data Manager is a Next.js-based application that provides intelligent data processing capabilities. It can parse CSV files, validate data integrity, and generate structured outputs using multiple AI providers including Google Gemini and local Ollama models. The application features a modern web interface for data upload, real-time validation, and AI-powered data analysis.
+TidyTable is a Next.js-based application that provides intelligent data processing capabilities. It can parse CSV files, validate data integrity, and generate structured outputs using multiple AI providers including Google Gemini and local Ollama models. The application features a modern web interface for data upload, real-time validation, and AI-powered data analysis.
 
 ## 🔧 How It Works
 
