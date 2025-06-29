@@ -186,17 +186,16 @@ ${JSON.stringify(schemaExample, null, 2)}`;
         } else if (value instanceof z.ZodRecord) {
           example[key] = { "key1": "value1", "key2": "value2" };
         } else if (value instanceof z.ZodOptional) {
-          // Handle optional fields
           const innerType = (value as any)._def?.innerType;
           if (innerType instanceof z.ZodString) {
             example[key] = "optional_string";
-          } else if (innerType instanceof z.ZodArray) {
-            example[key] = ["optional_item"];
+          } else if (innerType instanceof z.ZodNumber) {
+            example[key] = 456;
           } else {
             example[key] = "optional_value";
           }
         } else {
-          example[key] = "any_value";
+          example[key] = "unknown_type";
         }
       }
       
@@ -236,3 +235,4 @@ export const ollama = new OllamaClient();
 export function validateOllamaConnection() {
   return ollama.isHealthy();
 }
+

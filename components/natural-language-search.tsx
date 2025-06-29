@@ -104,37 +104,76 @@ export function NaturalLanguageSearch({ data }: NaturalLanguageSearchProps) {
               </p>
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <h4 className="font-medium text-sm mb-2">Clients ({results.clients.length})</h4>
                 <div className="space-y-1 max-h-32 overflow-y-auto">
-                  {results.clients.map((client, idx) => (
-                    <div key={idx} className="text-xs p-2 bg-gray-50 rounded">
-                      {client.ClientID || client.Name || JSON.stringify(client).slice(0, 50)}
-                    </div>
-                  ))}
+                  {results.clients.length > 0 ? (
+                    results.clients.map((client, idx) => (
+                      <div key={idx} className="text-xs p-2 bg-gray-50 rounded border">
+                        <div className="font-medium">
+                          {client.ClientID && <span>ID: {client.ClientID}</span>}
+                          {client.Name && <span className="ml-2">Name: {client.Name}</span>}
+                        </div>
+                        {client.PriorityLevel && (
+                          <div className="text-gray-600">Priority: {client.PriorityLevel}</div>
+                        )}
+                        {client.GroupTag && (
+                          <div className="text-gray-600">Group: {client.GroupTag}</div>
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-xs text-gray-500 p-2">No clients found</div>
+                  )}
                 </div>
               </div>
 
               <div>
                 <h4 className="font-medium text-sm mb-2">Workers ({results.workers.length})</h4>
                 <div className="space-y-1 max-h-32 overflow-y-auto">
-                  {results.workers.map((worker, idx) => (
-                    <div key={idx} className="text-xs p-2 bg-gray-50 rounded">
-                      {worker.WorkerID || worker.Name || JSON.stringify(worker).slice(0, 50)}
-                    </div>
-                  ))}
+                  {results.workers.length > 0 ? (
+                    results.workers.map((worker, idx) => (
+                      <div key={idx} className="text-xs p-2 bg-gray-50 rounded border">
+                        <div className="font-medium">
+                          {worker.WorkerID && <span>ID: {worker.WorkerID}</span>}
+                          {worker.Name && <span className="ml-2">Name: {worker.Name}</span>}
+                        </div>
+                        {worker.Skills && (
+                          <div className="text-gray-600">Skills: {Array.isArray(worker.Skills) ? worker.Skills.join(', ') : worker.Skills}</div>
+                        )}
+                        {worker.AvailableSlots && (
+                          <div className="text-gray-600">Available: {Array.isArray(worker.AvailableSlots) ? worker.AvailableSlots.join(', ') : worker.AvailableSlots}</div>
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-xs text-gray-500 p-2">No workers found</div>
+                  )}
                 </div>
               </div>
 
               <div>
                 <h4 className="font-medium text-sm mb-2">Tasks ({results.tasks.length})</h4>
                 <div className="space-y-1 max-h-32 overflow-y-auto">
-                  {results.tasks.map((task, idx) => (
-                    <div key={idx} className="text-xs p-2 bg-gray-50 rounded">
-                      {task.TaskID || task.Name || JSON.stringify(task).slice(0, 50)}
-                    </div>
-                  ))}
+                  {results.tasks.length > 0 ? (
+                    results.tasks.map((task, idx) => (
+                      <div key={idx} className="text-xs p-2 bg-gray-50 rounded border">
+                        <div className="font-medium">
+                          {task.TaskID && <span>ID: {task.TaskID}</span>}
+                          {task.Name && <span className="ml-2">Name: {task.Name}</span>}
+                        </div>
+                        {task.Duration && (
+                          <div className="text-gray-600">Duration: {task.Duration}</div>
+                        )}
+                        {task.RequiredSkills && (
+                          <div className="text-gray-600">Skills: {Array.isArray(task.RequiredSkills) ? task.RequiredSkills.join(', ') : task.RequiredSkills}</div>
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-xs text-gray-500 p-2">No tasks found</div>
+                  )}
                 </div>
               </div>
             </div>

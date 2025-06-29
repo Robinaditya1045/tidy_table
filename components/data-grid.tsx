@@ -9,9 +9,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { AlertTriangle, Edit3, Save, X } from "lucide-react"
 import type { ValidationError } from "@/app/page"
-// Add these imports at the top
-import { NaturalLanguageModifier } from "@/components/natural-language-modifier"
-import { AIErrorCorrection } from "@/components/ai-error-correction"
 
 interface DataGridProps {
   data: {
@@ -22,11 +19,6 @@ interface DataGridProps {
   onDataChange: (data: { clients: any[]; workers: any[]; tasks: any[] }) => void
   validationErrors: ValidationError[]
   onValidationErrors: (errors: ValidationError[]) => void
-  activeTab?: string
-  hasData?: boolean
-  uploadedData?: any
-  setUploadedData?: any
-  setValidationErrors?: any
 }
 
 export function DataGrid({
@@ -34,14 +26,11 @@ export function DataGrid({
   onDataChange,
   validationErrors,
   onValidationErrors,
-  activeTab,
-  hasData,
-  uploadedData,
-  setUploadedData,
-  setValidationErrors,
 }: DataGridProps) {
   const [editingCell, setEditingCell] = useState<{ entityType: string; rowIndex: number; column: string } | null>(null)
+  const [editingHeader, setEditingHeader] = useState<{ entityType: string; column: string } | null>(null)
   const [editValue, setEditValue] = useState("")
+  const [editHeaderValue, setEditHeaderValue] = useState("")
 
   const getErrorsForCell = (entityType: string, rowIndex: number, column: string) => {
     return validationErrors.filter(
@@ -51,7 +40,12 @@ export function DataGrid({
 
   const startEdit = (entityType: string, rowIndex: number, column: string, currentValue: any) => {
     setEditingCell({ entityType, rowIndex, column })
-    setEditValue(String(currentValue || ""))
+    // Handle array values for display
+    if (Array.isArray(currentValue)) {
+      setEditValue(currentValue.join(", "))
+    } else {
+      setEditValue(String(currentValue || ""))
+    }
   }
 
   const saveEdit = async () => {
@@ -59,7 +53,25 @@ export function DataGrid({
 
     const { entityType, rowIndex, column } = editingCell
     const newData = { ...data }
-    newData[entityType as keyof typeof data][rowIndex][column] = editValue
+    let processedValue = editValue
+
+    // Process the value based on the field type
+    if (column.includes("Skills") || column.includes("TaskIDs") || column.includes("Phases") || column.includes("Slots")) {
+      // Convert comma-separated string back to array
+      processedValue = editValue.split(",").map(v => {
+        const trimmed = v.trim()
+        // Convert to number if it's slots or phases
+        if (column.includes("Slots") || column.includes("Phases")) {
+          const num = Number(trimmed)
+          return isNaN(num) ? trimmed : num
+        }
+        return trimmed
+      }).filter(v => v !== "")
+    } else if (column.includes("Level") || column.includes("Duration") || column.includes("Load") || column.includes("Concurrent")) {
+      processedValue = Number(editValue) || 0
+    }
+
+    newData[entityType as keyof typeof data][rowIndex][column] = processedValue
 
     onDataChange(newData)
 
@@ -88,6 +100,60 @@ export function DataGrid({
     setEditValue("")
   }
 
+  const startHeaderEdit = (entityType: string, column: string) => {
+    setEditingHeader({ entityType, column })
+    setEditHeaderValue(column)
+  }
+
+  const saveHeaderEdit = async () => {
+    if (!editingHeader || !editHeaderValue.trim()) return
+
+    const { entityType, column: oldColumn } = editingHeader
+    const newColumn = editHeaderValue.trim()
+
+    if (oldColumn === newColumn) {
+      cancelHeaderEdit()
+      return
+    }
+
+    const newData = { ...data }
+    const entityData = newData[entityType as keyof typeof data]
+
+    // Rename the column in all rows
+    entityData.forEach((row) => {
+      if (row.hasOwnProperty(oldColumn)) {
+        row[newColumn] = row[oldColumn]
+        delete row[oldColumn]
+      }
+    })
+
+    onDataChange(newData)
+
+    // Re-validate after header edit
+    try {
+      const response = await fetch("/api/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newData),
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        onValidationErrors(result.errors || [])
+      }
+    } catch (error) {
+      console.error("Validation error:", error)
+    }
+
+    setEditingHeader(null)
+    setEditHeaderValue("")
+  }
+
+  const cancelHeaderEdit = () => {
+    setEditingHeader(null)
+    setEditHeaderValue("")
+  }
+
   const renderTable = (entityType: string, entityData: any[]) => {
     if (!entityData || entityData.length === 0) {
       return <div className="text-center py-8 text-gray-500">No {entityType} data uploaded yet</div>
@@ -100,11 +166,46 @@ export function DataGrid({
         <Table>
           <TableHeader>
             <TableRow>
-              {columns.map((column) => (
-                <TableHead key={column} className="min-w-[120px]">
-                  {column}
-                </TableHead>
-              ))}
+              {columns.map((column) => {
+                const isEditingThisHeader =
+                  editingHeader?.entityType === entityType && editingHeader?.column === column
+                const headerErrors = validationErrors.filter(
+                  (error) => error.entityType === entityType && error.columnName === column
+                ).length
+
+                return (
+                  <TableHead key={column} className="min-w-[120px]">
+                    {isEditingThisHeader ? (
+                      <div className="flex items-center gap-2">
+                        <Input
+                          value={editHeaderValue}
+                          onChange={(e) => setEditHeaderValue(e.target.value)}
+                          className="h-8 font-medium"
+                          autoFocus
+                          onKeyPress={(e) => e.key === "Enter" && saveHeaderEdit()}
+                        />
+                        <Button size="sm" variant="ghost" onClick={saveHeaderEdit}>
+                          <Save className="w-3 h-3" />
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={cancelHeaderEdit}>
+                          <X className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div
+                        className={`flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded group ${
+                          headerErrors > 0 ? "text-red-600" : ""
+                        }`}
+                        onClick={() => startHeaderEdit(entityType, column)}
+                      >
+                        <span className="flex-1 font-medium">{column}</span>
+                        <Edit3 className="w-3 h-3 opacity-0 group-hover:opacity-100" />
+                        {headerErrors > 0 && <AlertTriangle className="w-4 h-4 text-red-500" />}
+                      </div>
+                    )}
+                  </TableHead>
+                )
+              })}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -130,6 +231,7 @@ export function DataGrid({
                             onChange={(e) => setEditValue(e.target.value)}
                             className="h-8"
                             autoFocus
+                            onKeyPress={(e) => e.key === "Enter" && saveEdit()}
                           />
                           <Button size="sm" variant="ghost" onClick={saveEdit}>
                             <Save className="w-3 h-3" />
@@ -140,22 +242,29 @@ export function DataGrid({
                         </div>
                       ) : (
                         <div
-                          className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded"
+                          className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded group"
                           onClick={() => startEdit(entityType, rowIndex, column, cellValue)}
                         >
-                          <span className="flex-1">{String(cellValue || "")}</span>
+                          <span className="flex-1">
+                            {Array.isArray(cellValue) ? cellValue.join(", ") : String(cellValue || "")}
+                          </span>
                           <Edit3 className="w-3 h-3 opacity-0 group-hover:opacity-100" />
                           {cellErrors.length > 0 && <AlertTriangle className="w-4 h-4 text-red-500" />}
                         </div>
                       )}
 
                       {cellErrors.length > 0 && (
-                        <div className="absolute top-full left-0 z-10 mt-1 p-2 bg-red-100 border border-red-200 rounded shadow-lg text-xs">
+                        <div className="absolute top-full left-0 z-10 mt-1 p-2 bg-red-100 border border-red-200 rounded shadow-lg text-xs max-w-xs">
                           {cellErrors.map((error) => (
-                            <div key={error.id} className="text-red-700">
+                            <div key={error.id} className="text-red-700 mb-1">
                               {error.message}
                             </div>
                           ))}
+                          {cellErrors[0].suggestions && (
+                            <div className="text-blue-600 text-xs mt-1">
+                              💡 {cellErrors[0].suggestions[0]}
+                            </div>
+                          )}
                         </div>
                       )}
                     </TableCell>
@@ -187,23 +296,6 @@ export function DataGrid({
         <CardTitle>Data Grid - Click any cell to edit</CardTitle>
       </CardHeader>
       <CardContent>
-        {activeTab === "data" && hasData && (
-          <div className="space-y-6">
-            <NaturalLanguageModifier data={uploadedData} onDataChange={setUploadedData} />
-            <AIErrorCorrection
-              data={uploadedData}
-              validationErrors={validationErrors}
-              onDataChange={setUploadedData}
-              onValidationErrors={setValidationErrors}
-            />
-            <DataGrid
-              data={uploadedData}
-              onDataChange={setUploadedData}
-              validationErrors={validationErrors}
-              onValidationErrors={setValidationErrors}
-            />
-          </div>
-        )}
         <Tabs defaultValue="clients" className="w-full">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="clients" className="flex items-center gap-2">

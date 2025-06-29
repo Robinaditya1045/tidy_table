@@ -8,20 +8,21 @@ export async function POST(req: Request) {
     // Core Validation Rules
 
     // 1. Missing required columns
-    validateRequiredColumns(clients, "clients", ["ClientID", "Name", "PriorityLevel"], errors)
-    validateRequiredColumns(workers, "workers", ["WorkerID", "Name", "Skills", "AvailableSlots"], errors)
-    validateRequiredColumns(tasks, "tasks", ["TaskID", "Name", "Duration", "RequiredSkills"], errors)
+    validateRequiredColumns(clients, "clients", ["ClientID", "ClientName", "PriorityLevel"], errors)
+    validateRequiredColumns(workers, "workers", ["WorkerID", "WorkerName", "Skills", "AvailableSlots"], errors)
+    validateRequiredColumns(tasks, "tasks", ["TaskID", "TaskName", "Duration", "RequiredSkills"], errors)
 
     // 2. Duplicate IDs
     validateUniqueIds(clients, "clients", "ClientID", errors)
     validateUniqueIds(workers, "workers", "WorkerID", errors)
     validateUniqueIds(tasks, "tasks", "TaskID", errors)
 
-    // 3. Malformed lists
+    // 3. Malformed lists - check both original and mapped field names
     validateArrayFields(workers, "workers", "AvailableSlots", "number", errors)
     validateArrayFields(workers, "workers", "Skills", "string", errors)
     validateArrayFields(tasks, "tasks", "RequiredSkills", "string", errors)
     validateArrayFields(tasks, "tasks", "PreferredPhases", "number", errors)
+    validateArrayFields(clients, "clients", "RequestedTaskIDs", "string", errors)
 
     // 4. Out-of-range values
     validateRange(clients, "clients", "PriorityLevel", 1, 5, errors)
@@ -34,7 +35,7 @@ export async function POST(req: Request) {
     validateJSON(workers, "workers", "AttributesJSON", errors)
     validateJSON(tasks, "tasks", "AttributesJSON", errors)
 
-    // 6. Unknown references
+    // 6. Unknown references - improved validation
     validateTaskReferences(clients, tasks, errors)
 
     // 7. Overloaded workers
@@ -232,22 +233,25 @@ function validateJSON(data: any[], entityType: string, fieldName: string, errors
 function validateTaskReferences(clients: any[], tasks: any[], errors: ValidationError[]) {
   if (!clients || !tasks || clients.length === 0 || tasks.length === 0) return
 
-  const taskIds = new Set(tasks.map((task) => task.TaskID).filter(Boolean))
+  const taskIds = new Set(tasks.map((task) => task.TaskID || task.taskId || task.taskID).filter(Boolean))
 
   clients.forEach((client, index) => {
-    const requestedTasks = client.RequestedTaskIDs
+    const requestedTasks = client.RequestedTaskIDs || client.requestedTaskIDs || client.RequestedTasks
     if (Array.isArray(requestedTasks)) {
       const unknownTasks = requestedTasks.filter((taskId) => !taskIds.has(taskId))
       if (unknownTasks.length > 0) {
         errors.push({
           id: `unknown-task-refs-${index}`,
           type: "unknownReferences",
-          message: `Unknown task references: ${unknownTasks.join(", ")}`,
+          message: `Unknown task references: ${unknownTasks.join(", ")}. Available tasks: ${Array.from(taskIds).join(", ")}`,
           severity: "error",
           entityType: "clients",
           rowIndex: index,
           columnName: "RequestedTaskIDs",
-          suggestions: ["Remove unknown task IDs or add missing tasks"],
+          suggestions: [
+            "Remove unknown task IDs or add missing tasks to the tasks table",
+            `Available task IDs: ${Array.from(taskIds).slice(0, 10).join(", ")}${taskIds.size > 10 ? '...' : ''}`
+          ],
         })
       }
     }
