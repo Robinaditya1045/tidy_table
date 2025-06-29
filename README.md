@@ -1,4 +1,4 @@
-# AI Data Manager
+# TidyTable
 
 A powerful data management and analysis platform that leverages artificial intelligence to parse, validate, and process structured data from various sources.
 
